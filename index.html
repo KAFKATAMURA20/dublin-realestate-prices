@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dublin Real Estate Prices - Interactive Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+        }
+
+        #app {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        #sidebar {
+            width: 320px;
+            background: white;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+
+        .filter-section {
+            margin-bottom: 20px;
+        }
+
+        .filter-section h3 {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Price Range */
+        .price-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .price-input {
+            flex: 1;
+        }
+
+        .price-input label {
+            display: block;
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .price-input input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .price-range-slider {
+            margin-top: 15px;
+        }
+
+        .slider-track {
+            position: relative;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+
+        .slider-range {
+            position: absolute;
+            height: 100%;
+            background: #4a90d9;
+            border-radius: 3px;
+        }
+
+        /* Year Filter */
+        .year-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .year-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .year-btn:hover {
+            border-color: #4a90d9;
+        }
+
+        .year-btn.active {
+            background: #4a90d9;
+            color: white;
+            border-color: #4a90d9;
+        }
+
+        /* Property Type */
+        .type-select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        /* Location Search */
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #4a90d9;
+            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+        }
+
+        .search-hint {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* Eircode chips */
+        .eircode-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .eircode-chip {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .eircode-chip:hover {
+            border-color: #4a90d9;
+        }
+
+        .eircode-chip.active {
+            background: #4a90d9;
+            color: white;
+            border-color: #4a90d9;
+        }
+
+        .clear-filters {
+            margin-top: 15px;
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #666;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .clear-filters:hover {
+            background: #f5f5f5;
+            border-color: #999;
+        }
+
+        /* Stats */
+        .stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .stat-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* Legend */
+        .legend {
+            margin-top: 20px;
+        }
+
+        .legend h3 {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* Map */
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+
+        /* Popup styling */
+        .property-popup {
+            min-width: 200px;
+        }
+
+        .property-popup .price {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2c5282;
+            margin-bottom: 8px;
+        }
+
+        .property-popup .address {
+            font-size: 0.9rem;
+            color: #333;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .property-popup .details {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .property-popup .detail-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .property-popup .tag {
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+
+        /* Loading */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px 50px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 2000;
+            text-align: center;
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e0e0e0;
+            border-top-color: #4a90d9;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #app {
+                flex-direction: column;
+            }
+
+            #sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+
+            #map {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>Loading properties...</div>
+    </div>
+
+    <div id="app">
+        <div id="sidebar">
+            <h1>Dublin Property Prices</h1>
+            <p class="subtitle">Property Price Register 2024+</p>
+
+            <!-- Price Filter -->
+            <div class="filter-section">
+                <h3>Price Range</h3>
+                <div class="price-inputs">
+                    <div class="price-input">
+                        <label>Min Price</label>
+                        <input type="text" id="minPrice" placeholder="€0">
+                    </div>
+                    <div class="price-input">
+                        <label>Max Price</label>
+                        <input type="text" id="maxPrice" placeholder="€5,000,000">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Year Filter -->
+            <div class="filter-section">
+                <h3>Year</h3>
+                <div class="year-buttons">
+                    <button class="year-btn active" data-year="all">All</button>
+                    <button class="year-btn" data-year="2024">2024</button>
+                    <button class="year-btn" data-year="2025">2025</button>
+                    <button class="year-btn" data-year="2026">2026</button>
+                </div>
+            </div>
+
+            <!-- Property Type Filter -->
+            <div class="filter-section">
+                <h3>Property Type</h3>
+                <select class="type-select" id="propertyType">
+                    <option value="all">All Properties</option>
+                    <option value="New">New Build</option>
+                    <option value="Second-Hand">Second-Hand</option>
+                </select>
+            </div>
+
+            <!-- Location Search -->
+            <div class="filter-section">
+                <h3>Location Search</h3>
+                <input type="text" class="search-input" id="locationSearch" placeholder="Search address...">
+                <p class="search-hint">e.g., Drumcondra, Ranelagh, Lucan</p>
+            </div>
+
+            <!-- Eircode Filter -->
+            <div class="filter-section">
+                <h3>Eircode Area</h3>
+                <select class="type-select" id="eircodeSelect">
+                    <option value="all">All Areas</option>
+                </select>
+                <div class="eircode-chips" id="eircodeChips">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Clear Filters -->
+            <button class="clear-filters" id="clearFilters">Clear All Filters</button>
+
+            <!-- Statistics -->
+            <div class="stats">
+                <div class="stat-row">
+                    <span class="stat-label">Showing</span>
+                    <span class="stat-value" id="statCount">0 properties</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Average Price</span>
+                    <span class="stat-value" id="statAvg">€0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Price Range</span>
+                    <span class="stat-value" id="statRange">€0 - €0</span>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <h3>Price Legend</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #22c55e;"></div>
+                    <span>Under €300,000</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #eab308;"></div>
+                    <span>€300,000 - €500,000</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f97316;"></div>
+                    <span>€500,000 - €750,000</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ef4444;"></div>
+                    <span>Over €750,000</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // Global state
+        let map;
+        let markers;
+        let allProperties = [];
+
+        // Price color scale
+        function getPriceColor(price) {
+            if (price < 300000) return '#22c55e';  // Green
+            if (price < 500000) return '#eab308';  // Yellow
+            if (price < 750000) return '#f97316';  // Orange
+            return '#ef4444';  // Red
+        }
+
+        // Format price
+        function formatPrice(price) {
+            return '€' + price.toLocaleString('en-IE', { maximumFractionDigits: 0 });
+        }
+
+        // Create marker icon
+        function createMarkerIcon(color) {
+            return L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="
+                    width: 24px;
+                    height: 24px;
+                    background: ${color};
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                "></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12]
+            });
+        }
+
+        // Create popup content
+        function createPopupContent(property) {
+            return `
+                <div class="property-popup">
+                    <div class="price">${formatPrice(property.price)}</div>
+                    <div class="address">${property.address}</div>
+                    <div class="details">
+                        <div class="detail-row">
+                            <span class="tag">${property.type}</span>
+                            <span class="tag">${property.date}</span>
+                        </div>
+                        ${property.eircode ? `<div class="detail-row"><span class="tag">${property.eircode}</span></div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize map
+        function initMap() {
+            // Dublin center coordinates
+            map = L.map('map').setView([53.3498, -6.2603], 11);
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Initialize marker cluster group
+            markers = L.markerClusterGroup({
+                chunkedLoading: true,
+                maxClusterRadius: 50,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 'small';
+                    if (count > 50) size = 'large';
+                    else if (count > 20) size = 'medium';
+
+                    const sizes = {
+                        small: 30,
+                        medium: 40,
+                        large: 50
+                    };
+
+                    return L.divIcon({
+                        html: `<div style="
+                            background: #4a90d9;
+                            color: white;
+                            width: ${sizes[size]}px;
+                            height: ${sizes[size]}px;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-weight: bold;
+                            font-size: ${size === 'large' ? '14px' : '12px'};
+                            border: 3px solid white;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                        ">${count}</div>`,
+                        className: 'marker-cluster',
+                        iconSize: [sizes[size], sizes[size]]
+                    });
+                }
+            });
+
+            map.addLayer(markers);
+        }
+
+        // Extract Eircode prefix (first 3 characters, e.g., D01, D02, K78)
+        function getEircodePrefix(eircode) {
+            if (!eircode) return null;
+            return eircode.substring(0, 3).toUpperCase();
+        }
+
+        // Populate Eircode dropdown and chips
+        function populateEircodeFilter() {
+            const prefixes = {};
+            allProperties.forEach(p => {
+                const prefix = getEircodePrefix(p.eircode);
+                if (prefix) {
+                    prefixes[prefix] = (prefixes[prefix] || 0) + 1;
+                }
+            });
+
+            // Sort prefixes - Dublin (D##) first, then others
+            const sortedPrefixes = Object.keys(prefixes).sort((a, b) => {
+                const aIsDublin = a.startsWith('D') && /D\d{2}/.test(a);
+                const bIsDublin = b.startsWith('D') && /D\d{2}/.test(b);
+                if (aIsDublin && !bIsDublin) return -1;
+                if (!aIsDublin && bIsDublin) return 1;
+                return a.localeCompare(b);
+            });
+
+            // Populate dropdown
+            const select = document.getElementById('eircodeSelect');
+            sortedPrefixes.forEach(prefix => {
+                const option = document.createElement('option');
+                option.value = prefix;
+                option.textContent = `${prefix} (${prefixes[prefix]})`;
+                select.appendChild(option);
+            });
+
+            // Create chips for top Dublin areas
+            const chipsContainer = document.getElementById('eircodeChips');
+            const topPrefixes = sortedPrefixes.filter(p => p.startsWith('D')).slice(0, 8);
+            topPrefixes.forEach(prefix => {
+                const chip = document.createElement('button');
+                chip.className = 'eircode-chip';
+                chip.dataset.prefix = prefix;
+                chip.textContent = prefix;
+                chip.addEventListener('click', function() {
+                    // Toggle chip
+                    if (this.classList.contains('active')) {
+                        this.classList.remove('active');
+                        document.getElementById('eircodeSelect').value = 'all';
+                    } else {
+                        document.querySelectorAll('.eircode-chip').forEach(c => c.classList.remove('active'));
+                        this.classList.add('active');
+                        document.getElementById('eircodeSelect').value = prefix;
+                    }
+                    filterAndDisplay();
+                });
+                chipsContainer.appendChild(chip);
+            });
+        }
+
+        // Filter and display properties
+        function filterAndDisplay() {
+            // Get filter values
+            const minPrice = parseFloat(document.getElementById('minPrice').value.replace(/[^0-9.]/g, '')) || 0;
+            const maxPrice = parseFloat(document.getElementById('maxPrice').value.replace(/[^0-9.]/g, '')) || Infinity;
+            const selectedYear = document.querySelector('.year-btn.active').dataset.year;
+            const propertyType = document.getElementById('propertyType').value;
+            const locationSearch = document.getElementById('locationSearch').value.toLowerCase().trim();
+            const selectedEircode = document.getElementById('eircodeSelect').value;
+
+            // Filter properties
+            const filtered = allProperties.filter(p => {
+                if (p.price < minPrice || p.price > maxPrice) return false;
+                if (selectedYear !== 'all' && p.year !== parseInt(selectedYear)) return false;
+                if (propertyType !== 'all' && p.type !== propertyType) return false;
+
+                // Location search - match against address
+                if (locationSearch && !p.address.toLowerCase().includes(locationSearch)) return false;
+
+                // Eircode prefix filter
+                if (selectedEircode !== 'all') {
+                    const prefix = getEircodePrefix(p.eircode);
+                    if (prefix !== selectedEircode) return false;
+                }
+
+                return true;
+            });
+
+            // Clear existing markers
+            markers.clearLayers();
+
+            // Add filtered markers
+            filtered.forEach(property => {
+                const marker = L.marker([property.lat, property.lng], {
+                    icon: createMarkerIcon(getPriceColor(property.price))
+                });
+                marker.bindPopup(createPopupContent(property));
+                markers.addLayer(marker);
+            });
+
+            // Update statistics
+            updateStats(filtered);
+        }
+
+        // Update statistics display
+        function updateStats(properties) {
+            const count = properties.length;
+            document.getElementById('statCount').textContent = `${count.toLocaleString()} properties`;
+
+            if (count > 0) {
+                const prices = properties.map(p => p.price);
+                const avg = prices.reduce((a, b) => a + b, 0) / count;
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+
+                document.getElementById('statAvg').textContent = formatPrice(avg);
+                document.getElementById('statRange').textContent = `${formatPrice(min)} - ${formatPrice(max)}`;
+            } else {
+                document.getElementById('statAvg').textContent = '€0';
+                document.getElementById('statRange').textContent = '€0 - €0';
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Price inputs
+            document.getElementById('minPrice').addEventListener('change', filterAndDisplay);
+            document.getElementById('maxPrice').addEventListener('change', filterAndDisplay);
+
+            // Year buttons
+            document.querySelectorAll('.year-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    filterAndDisplay();
+                });
+            });
+
+            // Property type select
+            document.getElementById('propertyType').addEventListener('change', filterAndDisplay);
+
+            // Location search - debounced for better UX
+            let searchTimeout;
+            document.getElementById('locationSearch').addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(filterAndDisplay, 300);
+            });
+
+            // Eircode select
+            document.getElementById('eircodeSelect').addEventListener('change', function() {
+                // Sync chips with dropdown
+                const value = this.value;
+                document.querySelectorAll('.eircode-chip').forEach(chip => {
+                    chip.classList.toggle('active', chip.dataset.prefix === value);
+                });
+                filterAndDisplay();
+            });
+
+            // Clear all filters
+            document.getElementById('clearFilters').addEventListener('click', function() {
+                // Reset all filters
+                document.getElementById('minPrice').value = '';
+                document.getElementById('maxPrice').value = '';
+                document.getElementById('propertyType').value = 'all';
+                document.getElementById('locationSearch').value = '';
+                document.getElementById('eircodeSelect').value = 'all';
+
+                // Reset year buttons
+                document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.year-btn[data-year="all"]').classList.add('active');
+
+                // Reset eircode chips
+                document.querySelectorAll('.eircode-chip').forEach(c => c.classList.remove('active'));
+
+                filterAndDisplay();
+            });
+        }
+
+        // Load data and initialize
+        async function init() {
+            try {
+                const response = await fetch('properties.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load properties.json');
+                }
+                allProperties = await response.json();
+
+                // Initialize map and display
+                initMap();
+                populateEircodeFilter();
+                filterAndDisplay();
+
+                // Setup interactivity
+                setupEventListeners();
+
+                // Hide loading
+                document.getElementById('loading').classList.add('hidden');
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div style="color: #ef4444;">
+                        <strong>Error loading data</strong><br>
+                        <small>Make sure properties.json exists.<br>
+                        Run: python process_data.py</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>
