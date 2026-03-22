@@ -165,6 +165,85 @@
             margin-top: 5px;
         }
 
+        /* Autocomplete */
+        .search-container {
+            position: relative;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+        }
+
+        .autocomplete-dropdown.show {
+            display: block;
+        }
+
+        .autocomplete-section {
+            padding: 6px 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #666;
+            background: #f5f5f5;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .autocomplete-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background: #e8f4fd;
+        }
+
+        .autocomplete-item .area-name {
+            color: #333;
+        }
+
+        .autocomplete-item .area-count {
+            font-size: 0.75rem;
+            color: #888;
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .autocomplete-item.address-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+
+        .autocomplete-item.address-item .address-text {
+            color: #333;
+            font-size: 0.8rem;
+        }
+
+        .autocomplete-item.address-item .address-price {
+            font-size: 0.75rem;
+            color: #2563eb;
+            font-weight: 600;
+        }
+
         /* Eircode chips */
         .eircode-chips {
             display: flex;
@@ -446,8 +525,13 @@
             <!-- Location Search -->
             <div class="filter-section">
                 <h3>Location Search</h3>
-                <input type="text" class="search-input" id="locationSearch" placeholder="Search address...">
-                <p class="search-hint">Search by area (Drumcondra, Ranelagh) or street name to see neighborhood stats</p>
+                <div class="search-container">
+                    <input type="text" class="search-input" id="locationSearch" placeholder="Search address or area..." autocomplete="off">
+                    <div class="autocomplete-dropdown" id="autocompleteDropdown">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+                <p class="search-hint">Type to see suggestions (areas, streets, addresses)</p>
             </div>
 
             <!-- Eircode Filter -->
@@ -570,12 +654,12 @@
 
         // Create popup content
         function createPopupContent(property) {
-            // Create search query for Google (address + BER to find listings)
-            const searchQuery = encodeURIComponent(`${property.address} BER rating Ireland`);
-            const googleSearchUrl = `https://www.google.com/search?q=${searchQuery}`;
+            // Create search queries for Google
+            const berSearchQuery = encodeURIComponent(`${property.eircode || property.address} BER energy rating`);
+            const berSearchUrl = `https://www.google.com/search?q=${berSearchQuery}`;
 
-            // SEAI BER register link
-            const seaiUrl = 'https://ndber.seai.ie/pass/ber/search.aspx';
+            const detailsSearchQuery = encodeURIComponent(`${property.address} daft.ie OR myhome.ie`);
+            const detailsSearchUrl = `https://www.google.com/search?q=${detailsSearchQuery}`;
 
             return `
                 <div class="property-popup">
@@ -589,11 +673,11 @@
                         ${property.eircode ? `<div class="detail-row"><span class="tag">${property.eircode}</span></div>` : ''}
                     </div>
                     <div class="lookup-buttons">
-                        <a href="${seaiUrl}" target="_blank" class="lookup-btn ber-btn" title="Look up BER certificate (requires MPRN)">
-                            Lookup BER
+                        <a href="${berSearchUrl}" target="_blank" class="lookup-btn ber-btn" title="Search for BER rating online">
+                            Find BER
                         </a>
-                        <a href="${googleSearchUrl}" target="_blank" class="lookup-btn" title="Search for property details online">
-                            Search Online
+                        <a href="${detailsSearchUrl}" target="_blank" class="lookup-btn" title="Find listing with bedrooms, sqm, photos">
+                            Find Listing
                         </a>
                     </div>
                 </div>
@@ -708,6 +792,190 @@
                 });
                 chipsContainer.appendChild(chip);
             });
+        }
+
+        // Autocomplete data
+        let areaIndex = {};  // { areaName: count }
+        let selectedAutocompleteIndex = -1;
+
+        // Extract area names from addresses
+        function buildAreaIndex() {
+            areaIndex = {};
+            const areaPatterns = [
+                // Dublin areas - extract from address parts
+                /,\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),?\s*(?:Dublin|Co\.?\s*Dublin)/i,
+                /,\s*(Dublin\s*\d+)/i,
+                /\b(Drumcondra|Ranelagh|Rathmines|Rathgar|Rathfarnham|Blackrock|Stillorgan|Dundrum|Dalkey|Dun Laoghaire|Sandyford|Clontarf|Raheny|Howth|Malahide|Swords|Lucan|Clondalkin|Tallaght|Ballsbridge|Donnybrook|Sandymount|Ringsend|Glasnevin|Phibsborough|Cabra|Finglas|Ballymun|Santry|Artane|Beaumont|Killester|Fairview|Marino|Coolock|Baldoyle|Portmarnock|Sutton|Bayside|Kilbarrack|Harmonstown|Edenmore|Donaghmede|Clongriffin|Belmayne|Clarehall|Darndale|Priorswood|Kilmore|Whitehall|Ballyfermot|Inchicore|Kilmainham|Crumlin|Drimnagh|Walkinstown|Kimmage|Terenure|Harold's Cross|Harolds Cross|Portobello|Christchurch|Liberties|Stoneybatter|Smithfield|Broadstone|Grangegorman|Arbour Hill|Phoenix Park|Chapelizod|Palmerston|Islandbridge|Killiney|Shankill|Bray|Greystones|Foxrock|Leopardstown|Stepaside|Kilternan|Glencullen|Enniskerry|Cabinteely|Cornelscourt|Deansgrange|Monkstown|Booterstown|Merrion|Ballinteer|Knocklyon|Firhouse|Templeogue|Churchtown|Milltown|Clonskeagh|Windy Arbour|Goatstown|Mount Merrion|Stillorgan|Kilmacud|Sandyford|Carrickmines|Ballybrack|Loughlinstown|Sallynoggin|Glenageary|Glasthule|Dalkey|Killiney|Ballybrack|Cherrywood|Brennanstown|Johnstown|Cabinteely)\b/gi
+            ];
+
+            allProperties.forEach(p => {
+                let foundArea = null;
+
+                // Try to extract area from address
+                for (const pattern of areaPatterns) {
+                    const match = p.address.match(pattern);
+                    if (match) {
+                        foundArea = match[1].trim();
+                        break;
+                    }
+                }
+
+                // Fallback: use parts of address
+                if (!foundArea) {
+                    const parts = p.address.split(',').map(s => s.trim());
+                    if (parts.length >= 2) {
+                        // Use second-to-last part often contains area
+                        foundArea = parts[parts.length - 2];
+                    }
+                }
+
+                if (foundArea && foundArea.length > 2 && foundArea.length < 40) {
+                    // Normalize
+                    foundArea = foundArea.replace(/^(Co\.?\s*)?Dublin\s*/i, '').trim();
+                    if (foundArea && !/^\d+$/.test(foundArea)) {
+                        areaIndex[foundArea] = (areaIndex[foundArea] || 0) + 1;
+                    }
+                }
+            });
+        }
+
+        // Get autocomplete suggestions
+        function getAutocompleteSuggestions(query) {
+            if (!query || query.length < 2) return { areas: [], addresses: [] };
+
+            const lowerQuery = query.toLowerCase();
+            const results = { areas: [], addresses: [] };
+
+            // Find matching areas (sorted by count)
+            const matchingAreas = Object.entries(areaIndex)
+                .filter(([area]) => area.toLowerCase().includes(lowerQuery))
+                .sort((a, b) => b[1] - a[1])  // Sort by count descending
+                .slice(0, 5);
+
+            results.areas = matchingAreas.map(([name, count]) => ({ name, count }));
+
+            // Find matching addresses (limit to 5)
+            const matchingAddresses = allProperties
+                .filter(p => p.address.toLowerCase().includes(lowerQuery))
+                .slice(0, 5);
+
+            results.addresses = matchingAddresses;
+
+            return results;
+        }
+
+        // Render autocomplete dropdown
+        function renderAutocomplete(suggestions) {
+            const dropdown = document.getElementById('autocompleteDropdown');
+            dropdown.innerHTML = '';
+            selectedAutocompleteIndex = -1;
+
+            if (suggestions.areas.length === 0 && suggestions.addresses.length === 0) {
+                dropdown.classList.remove('show');
+                return;
+            }
+
+            let itemIndex = 0;
+
+            // Add areas section
+            if (suggestions.areas.length > 0) {
+                const sectionHeader = document.createElement('div');
+                sectionHeader.className = 'autocomplete-section';
+                sectionHeader.textContent = 'Areas';
+                dropdown.appendChild(sectionHeader);
+
+                suggestions.areas.forEach(area => {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item';
+                    item.dataset.index = itemIndex++;
+                    item.dataset.type = 'area';
+                    item.dataset.value = area.name;
+                    item.innerHTML = `
+                        <span class="area-name">${area.name}</span>
+                        <span class="area-count">${area.count} properties</span>
+                    `;
+                    item.addEventListener('click', () => selectAutocompleteItem(area.name));
+                    dropdown.appendChild(item);
+                });
+            }
+
+            // Add addresses section
+            if (suggestions.addresses.length > 0) {
+                const sectionHeader = document.createElement('div');
+                sectionHeader.className = 'autocomplete-section';
+                sectionHeader.textContent = 'Addresses';
+                dropdown.appendChild(sectionHeader);
+
+                suggestions.addresses.forEach(prop => {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item address-item';
+                    item.dataset.index = itemIndex++;
+                    item.dataset.type = 'address';
+                    item.dataset.value = prop.address;
+                    item.dataset.lat = prop.lat;
+                    item.dataset.lng = prop.lng;
+                    item.innerHTML = `
+                        <span class="address-text">${prop.address.substring(0, 50)}${prop.address.length > 50 ? '...' : ''}</span>
+                        <span class="address-price">${formatPrice(prop.price)} - ${prop.date}</span>
+                    `;
+                    item.addEventListener('click', () => selectAutocompleteItem(prop.address, prop.lat, prop.lng));
+                    dropdown.appendChild(item);
+                });
+            }
+
+            dropdown.classList.add('show');
+        }
+
+        // Select autocomplete item
+        function selectAutocompleteItem(value, lat, lng) {
+            const searchInput = document.getElementById('locationSearch');
+            searchInput.value = value;
+            document.getElementById('autocompleteDropdown').classList.remove('show');
+
+            // If we have coordinates, zoom to that location
+            if (lat && lng) {
+                map.setView([lat, lng], 17);
+            }
+
+            filterAndDisplay();
+        }
+
+        // Handle keyboard navigation in autocomplete
+        function handleAutocompleteKeydown(e) {
+            const dropdown = document.getElementById('autocompleteDropdown');
+            if (!dropdown.classList.contains('show')) return;
+
+            const items = dropdown.querySelectorAll('.autocomplete-item');
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedAutocompleteIndex = Math.min(selectedAutocompleteIndex + 1, items.length - 1);
+                updateAutocompleteSelection(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedAutocompleteIndex = Math.max(selectedAutocompleteIndex - 1, 0);
+                updateAutocompleteSelection(items);
+            } else if (e.key === 'Enter' && selectedAutocompleteIndex >= 0) {
+                e.preventDefault();
+                const selectedItem = items[selectedAutocompleteIndex];
+                const lat = selectedItem.dataset.lat ? parseFloat(selectedItem.dataset.lat) : null;
+                const lng = selectedItem.dataset.lng ? parseFloat(selectedItem.dataset.lng) : null;
+                selectAutocompleteItem(selectedItem.dataset.value, lat, lng);
+            } else if (e.key === 'Escape') {
+                dropdown.classList.remove('show');
+            }
+        }
+
+        // Update visual selection in autocomplete
+        function updateAutocompleteSelection(items) {
+            items.forEach((item, i) => {
+                item.classList.toggle('selected', i === selectedAutocompleteIndex);
+            });
+            // Scroll into view
+            if (selectedAutocompleteIndex >= 0) {
+                items[selectedAutocompleteIndex].scrollIntoView({ block: 'nearest' });
+            }
         }
 
         // Filter and display properties
@@ -854,11 +1122,42 @@
             // Property type select
             document.getElementById('propertyType').addEventListener('change', filterAndDisplay);
 
-            // Location search - debounced for better UX
+            // Location search with autocomplete
             let searchTimeout;
-            document.getElementById('locationSearch').addEventListener('input', function() {
+            const locationInput = document.getElementById('locationSearch');
+            const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+
+            locationInput.addEventListener('input', function() {
                 clearTimeout(searchTimeout);
+                const query = this.value.trim();
+
+                // Show autocomplete suggestions
+                if (query.length >= 2) {
+                    const suggestions = getAutocompleteSuggestions(query);
+                    renderAutocomplete(suggestions);
+                } else {
+                    autocompleteDropdown.classList.remove('show');
+                }
+
+                // Debounced filter
                 searchTimeout = setTimeout(filterAndDisplay, 300);
+            });
+
+            locationInput.addEventListener('keydown', handleAutocompleteKeydown);
+
+            // Hide autocomplete when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-container')) {
+                    autocompleteDropdown.classList.remove('show');
+                }
+            });
+
+            // Show autocomplete on focus if there's text
+            locationInput.addEventListener('focus', function() {
+                if (this.value.trim().length >= 2) {
+                    const suggestions = getAutocompleteSuggestions(this.value.trim());
+                    renderAutocomplete(suggestions);
+                }
             });
 
             // Eircode select
@@ -955,6 +1254,7 @@
                 // Initialize map and display
                 initMap();
                 populateEircodeFilter();
+                buildAreaIndex();  // Build autocomplete index
                 filterAndDisplay();
 
                 // Setup interactivity
