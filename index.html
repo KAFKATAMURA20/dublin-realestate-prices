@@ -368,7 +368,7 @@
     <div id="app">
         <div id="sidebar">
             <h1>Dublin Property Prices</h1>
-            <p class="subtitle">Property Price Register 2024+</p>
+            <p class="subtitle">Property Price Register 2024-2026</p>
 
             <!-- Price Filter -->
             <div class="filter-section">
@@ -410,7 +410,7 @@
             <div class="filter-section">
                 <h3>Location Search</h3>
                 <input type="text" class="search-input" id="locationSearch" placeholder="Search address...">
-                <p class="search-hint">e.g., Drumcondra, Ranelagh, Lucan</p>
+                <p class="search-hint">Search by area (Drumcondra, Ranelagh) or street name to see neighborhood stats</p>
             </div>
 
             <!-- Eircode Filter -->
@@ -438,8 +438,29 @@
                     <span class="stat-value" id="statAvg">€0</span>
                 </div>
                 <div class="stat-row">
+                    <span class="stat-label">Median Price</span>
+                    <span class="stat-value" id="statMedian">€0</span>
+                </div>
+                <div class="stat-row">
                     <span class="stat-label">Price Range</span>
                     <span class="stat-value" id="statRange">€0 - €0</span>
+                </div>
+            </div>
+
+            <!-- Neighborhood Analysis (shown when searching) -->
+            <div class="stats" id="neighborhoodStats" style="display:none; margin-top:10px; background:#e8f4fd;">
+                <h4 style="margin:0 0 10px 0; font-size:0.9rem; color:#2563eb;">Neighborhood Analysis</h4>
+                <div class="stat-row">
+                    <span class="stat-label">New Builds Avg</span>
+                    <span class="stat-value" id="statNewAvg">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Second-Hand Avg</span>
+                    <span class="stat-value" id="statUsedAvg">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Price Trend (YoY)</span>
+                    <span class="stat-value" id="statTrend">-</span>
                 </div>
             </div>
 
@@ -681,22 +702,85 @@
             updateStats(filtered);
         }
 
+        // Calculate median of an array
+        function calculateMedian(arr) {
+            if (arr.length === 0) return 0;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+
         // Update statistics display
         function updateStats(properties) {
             const count = properties.length;
             document.getElementById('statCount').textContent = `${count.toLocaleString()} properties`;
 
+            const locationSearch = document.getElementById('locationSearch').value.trim();
+            const neighborhoodPanel = document.getElementById('neighborhoodStats');
+
             if (count > 0) {
                 const prices = properties.map(p => p.price);
                 const avg = prices.reduce((a, b) => a + b, 0) / count;
+                const median = calculateMedian(prices);
                 const min = Math.min(...prices);
                 const max = Math.max(...prices);
 
                 document.getElementById('statAvg').textContent = formatPrice(avg);
+                document.getElementById('statMedian').textContent = formatPrice(median);
                 document.getElementById('statRange').textContent = `${formatPrice(min)} - ${formatPrice(max)}`;
+
+                // Show neighborhood analysis when searching
+                if (locationSearch) {
+                    neighborhoodPanel.style.display = 'block';
+
+                    // Calculate new builds vs second-hand averages
+                    const newBuilds = properties.filter(p => p.type === 'New');
+                    const secondHand = properties.filter(p => p.type === 'Second-Hand');
+
+                    const newAvg = newBuilds.length > 0
+                        ? newBuilds.reduce((sum, p) => sum + p.price, 0) / newBuilds.length
+                        : 0;
+                    const usedAvg = secondHand.length > 0
+                        ? secondHand.reduce((sum, p) => sum + p.price, 0) / secondHand.length
+                        : 0;
+
+                    document.getElementById('statNewAvg').textContent = newBuilds.length > 0
+                        ? `${formatPrice(newAvg)} (${newBuilds.length})`
+                        : 'N/A';
+                    document.getElementById('statUsedAvg').textContent = secondHand.length > 0
+                        ? `${formatPrice(usedAvg)} (${secondHand.length})`
+                        : 'N/A';
+
+                    // Calculate year-over-year trend
+                    const currentYear = new Date().getFullYear();
+                    const thisYear = properties.filter(p => p.year === currentYear);
+                    const lastYear = properties.filter(p => p.year === currentYear - 1);
+
+                    if (thisYear.length >= 3 && lastYear.length >= 3) {
+                        const thisYearAvg = thisYear.reduce((sum, p) => sum + p.price, 0) / thisYear.length;
+                        const lastYearAvg = lastYear.reduce((sum, p) => sum + p.price, 0) / lastYear.length;
+                        const trend = ((thisYearAvg - lastYearAvg) / lastYearAvg) * 100;
+                        const trendSign = trend >= 0 ? '+' : '';
+                        const trendColor = trend >= 0 ? '#16a34a' : '#dc2626';
+                        document.getElementById('statTrend').innerHTML =
+                            `<span style="color:${trendColor}">${trendSign}${trend.toFixed(1)}%</span>`;
+                    } else {
+                        document.getElementById('statTrend').textContent = 'Insufficient data';
+                    }
+
+                    // Zoom map to fit filtered properties
+                    if (properties.length > 0 && properties.length < allProperties.length) {
+                        const bounds = L.latLngBounds(properties.map(p => [p.lat, p.lng]));
+                        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+                    }
+                } else {
+                    neighborhoodPanel.style.display = 'none';
+                }
             } else {
                 document.getElementById('statAvg').textContent = '€0';
+                document.getElementById('statMedian').textContent = '€0';
                 document.getElementById('statRange').textContent = '€0 - €0';
+                neighborhoodPanel.style.display = 'none';
             }
         }
 
