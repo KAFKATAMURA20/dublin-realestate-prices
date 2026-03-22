@@ -809,12 +809,14 @@
             ];
 
             allProperties.forEach(p => {
+                if (!p.address) return;  // Skip if no address
+
                 let foundArea = null;
 
                 // Try to extract area from address
                 for (const pattern of areaPatterns) {
                     const match = p.address.match(pattern);
-                    if (match) {
+                    if (match && match[1]) {
                         foundArea = match[1].trim();
                         break;
                     }
@@ -822,8 +824,8 @@
 
                 // Fallback: use parts of address
                 if (!foundArea) {
-                    const parts = p.address.split(',').map(s => s.trim());
-                    if (parts.length >= 2) {
+                    const parts = p.address.split(',').map(s => s ? s.trim() : '');
+                    if (parts.length >= 2 && parts[parts.length - 2]) {
                         // Use second-to-last part often contains area
                         foundArea = parts[parts.length - 2];
                     }
