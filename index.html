@@ -309,6 +309,43 @@
             font-size: 0.75rem;
         }
 
+        .property-popup .lookup-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .property-popup .lookup-btn {
+            flex: 1;
+            padding: 6px 8px;
+            font-size: 0.7rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background: #f8fafc;
+            color: #475569;
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .property-popup .lookup-btn:hover {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+        }
+
+        .property-popup .lookup-btn.ber-btn {
+            background: #ecfdf5;
+            border-color: #86efac;
+            color: #166534;
+        }
+
+        .property-popup .lookup-btn.ber-btn:hover {
+            background: #dcfce7;
+        }
+
         /* Loading */
         #loading {
             position: fixed;
@@ -533,6 +570,13 @@
 
         // Create popup content
         function createPopupContent(property) {
+            // Create search query for Google (address + BER to find listings)
+            const searchQuery = encodeURIComponent(`${property.address} BER rating Ireland`);
+            const googleSearchUrl = `https://www.google.com/search?q=${searchQuery}`;
+
+            // SEAI BER register link
+            const seaiUrl = 'https://ndber.seai.ie/pass/ber/search.aspx';
+
             return `
                 <div class="property-popup">
                     <div class="price">${formatPrice(property.price)}</div>
@@ -543,6 +587,14 @@
                             <span class="tag">${property.date}</span>
                         </div>
                         ${property.eircode ? `<div class="detail-row"><span class="tag">${property.eircode}</span></div>` : ''}
+                    </div>
+                    <div class="lookup-buttons">
+                        <a href="${seaiUrl}" target="_blank" class="lookup-btn ber-btn" title="Look up BER certificate (requires MPRN)">
+                            Lookup BER
+                        </a>
+                        <a href="${googleSearchUrl}" target="_blank" class="lookup-btn" title="Search for property details online">
+                            Search Online
+                        </a>
                     </div>
                 </div>
             `;
