@@ -1009,9 +1009,30 @@
             // Clear existing markers
             markers.clearLayers();
 
-            // Add filtered markers
+            // Track coordinates to offset overlapping markers
+            const usedCoords = {};
+
+            // Add filtered markers with offset for overlapping locations
             filtered.forEach(property => {
-                const marker = L.marker([property.lat, property.lng], {
+                const coordKey = `${property.lat.toFixed(6)},${property.lng.toFixed(6)}`;
+
+                // Calculate offset for overlapping markers
+                let lat = property.lat;
+                let lng = property.lng;
+
+                if (usedCoords[coordKey]) {
+                    // Add spiral offset for overlapping markers
+                    const count = usedCoords[coordKey];
+                    const angle = count * 0.5;  // Spiral angle
+                    const radius = 0.00015 * Math.ceil(count / 8);  // ~15m radius, increases for more overlaps
+                    lat += radius * Math.cos(angle);
+                    lng += radius * Math.sin(angle);
+                    usedCoords[coordKey]++;
+                } else {
+                    usedCoords[coordKey] = 1;
+                }
+
+                const marker = L.marker([lat, lng], {
                     icon: createMarkerIcon(getPriceColor(property.price))
                 });
                 marker.bindPopup(createPopupContent(property));
